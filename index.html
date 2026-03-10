@@ -6,9 +6,9 @@
     <title>Incentive Tracker</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes"> <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Incentives">
-    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#ffffff"> <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/png" href="icon.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,8 +20,25 @@
             -webkit-user-select: none;   
             user-select: none;
             touch-action: manipulation;  
-            padding-bottom: env(safe-area-inset-bottom);
+            /* ⚠️ 已經刪除 body 嘅 padding-bottom，解決成個畫面被強行推高嘅 Bug */
         }
+        
+        /* === Ver 5.4 核心修正：動態計算 PWA 安全區域 (瀏海 / 底部橫條) === */
+        header {
+            padding-top: env(safe-area-inset-top);
+        }
+        main {
+            /* 預留頂部 Header 同底部 Nav 嘅高度，確保內容絕對唔會被遮擋 */
+            padding-top: calc(85px + env(safe-area-inset-top));
+            padding-bottom: calc(100px + env(safe-area-inset-bottom));
+        }
+        #bottom-nav {
+            /* 將底部安全區加落 Nav 自身，令白色背景向下填滿空白，按鈕保持喺橫條上方 */
+            padding-top: 0.5rem;
+            padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+        }
+        /* ========================================================= */
+
         input, select, textarea {
             -webkit-user-select: auto;
             user-select: auto;
@@ -47,7 +64,7 @@
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans">
 
-    <header class="sticky top-0 w-full bg-white/80 backdrop-blur-md border-b z-40 pt-[env(safe-area-inset-top)]">
+    <header class="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b z-10">
         <div class="px-6 py-4 flex justify-between items-center relative">
             <div id="header-default" class="flex justify-between items-center w-full">
                 <h1 class="text-xl font-bold" id="display-month-year">2024年 5月</h1>
@@ -80,7 +97,7 @@
         </div>
     </header>
 
-    <main class="pt-6 pb-32 px-6">
+    <main class="px-6">
         
         <section id="view-calendar" class="view">
             <div class="flex justify-between items-center mb-6">
@@ -189,7 +206,7 @@
 
     <div class="fixed bottom-20 right-4 text-[10px] text-gray-300 font-mono italic">Ver 5.4</div>
 
-    <nav id="bottom-nav" class="fixed bottom-0 w-full bg-white border-t px-6 py-2 flex justify-between items-center z-40">
+    <nav id="bottom-nav" class="fixed bottom-0 w-full bg-white border-t px-6 flex justify-between items-center z-10">
         <button onclick="showView('calendar')" class="nav-btn flex flex-col items-center p-2 active-tab" id="btn-calendar">
             <i data-lucide="calendar" class="w-6 h-6"></i><span class="text-[10px] mt-1">月曆</span>
         </button>
@@ -207,7 +224,6 @@
         let activeMonth = new Date().getMonth();
         let summaryMode = 'daily';
 
-        // --- 按鍵聲 ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playClickSound() {
             if (audioCtx.state === 'suspended') { audioCtx.resume(); }
@@ -297,9 +313,6 @@
         function showView(viewName, dateStr = null) {
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             document.getElementById(`view-${viewName}`).classList.remove('hidden');
-            
-            // 當前頁面置頂，防止切換頁面時停留喺卷軸底部
-            window.scrollTo(0, 0);
             
             document.getElementById('header-default').classList.add('hidden');
             document.getElementById('header-setup').classList.add('hidden');
