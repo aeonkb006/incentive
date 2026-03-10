@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Incentive Tracker</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes"> <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> <meta name="apple-mobile-web-app-title" content="Incentives"> <link rel="apple-touch-icon" href="icon.png"> <link rel="icon" type="image/png" href="icon.png"> <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none; 
+            -webkit-user-select: none;   
+            user-select: none;
+            touch-action: manipulation;  
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        input, select, textarea {
+            -webkit-user-select: auto;
+            user-select: auto;
+        }
+
+        .active-tab { color: #3b82f6; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+        .day-cell { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; z-index: 1;}
+        .has-data::after { 
+            content: ''; 
+            position: absolute; 
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 32px; height: 32px; 
+            background-color: #ffedd5; 
+            border-radius: 50%; 
+            z-index: -1; 
+        }
+        .is-today { color: #3b82f6; font-weight: bold; }
+        .sun-text { color: #ef4444; }
+        .delete-btn { display: none; }
+        .editing .delete-btn { display: flex; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+
+    <header class="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b z-10 pt-[env(safe-area-inset-top)]">
+        <div class="px-6 py-4 flex justify-between items-center relative">
+            <div id="header-default" class="flex justify-between items-center w-full">
+                <h1 class="text-xl font-bold" id="display-month-year">2024年 5月</h1>
+                <div class="text-right">
+                    <p class="text-2xl font-black text-blue-600">Incentive $<span id="totalAmount">0</span></p>
+                    <p class="text-xs text-gray-500 font-medium">(總銷售金額 $<span id="totalSales">0</span>)</p>
+                </div>
+            </div>
+
+            <div id="header-setup" class="hidden flex justify-between items-center w-full">
+                <button onclick="showView('calendar')" class="text-blue-600 flex items-center">
+                    <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                    <span>返回</span>
+                </button>
+                <h1 class="text-lg font-bold">添加型號及獎金</h1>
+                <div class="w-12"></div>
+            </div>
+
+            <div id="header-summary" class="hidden flex justify-between items-center w-full">
+                <div class="flex items-center space-x-2 -ml-2">
+                    <button onclick="changeMonth(-1)" class="p-2 active:bg-gray-100 rounded-full text-gray-600"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
+                    <h1 class="text-xl font-bold w-24 text-center" id="display-summary-month">2024年 5月</h1>
+                    <button onclick="changeMonth(1)" class="p-2 active:bg-gray-100 rounded-full text-gray-600"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-black text-blue-600">Incentive $<span id="summaryTotalAmount">0</span></p>
+                    <p class="text-xs text-gray-500 font-medium">(總銷售金額 $<span id="summaryTotalSales">0</span>)</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="pt-24 pb-32 px-6">
+        
+        <section id="view-calendar" class="view">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex space-x-4 items-center">
+                    <button onclick="changeMonth(-1)" class="p-2 bg-white rounded-full shadow-sm active:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                    <button onclick="changeMonth(1)" class="p-2 bg-white rounded-full shadow-sm active:bg-gray-100"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                </div>
+                <button id="btn-setup-incentive" onclick="showView('setup-incentive')" class="text-xs font-medium text-white px-3 py-2 rounded-lg transition-colors">設定當月 Incentive</button>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-sm p-4">
+                <div class="calendar-grid mb-2 text-center text-xs font-bold text-gray-400">
+                    <div class="sun-text">Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div id="calendar-days" class="calendar-grid text-sm"></div>
+            </div>
+
+            <div id="calendar-month-remark" class="mt-4 text-center text-xs text-gray-400 whitespace-pre-wrap break-words px-4 leading-relaxed"></div>
+        </section>
+
+        <section id="view-setup-incentive" class="view hidden">
+            <div class="flex justify-center items-center mb-4 space-x-4">
+                <p class="text-gray-500 font-medium" id="setup-month-display">正在設定: 2024年 5月</p>
+                <button id="btn-setup-remark" onclick="openRemarkModal()" class="text-xs px-3 py-1.5 rounded-lg bg-gray-400 text-white font-bold transition-colors shadow-sm active:scale-95">備注</button>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm space-y-4 mb-8">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">型號</label>
+                    <input type="text" id="setup-model" placeholder="-請輸入型號-" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">獎金 ($)</label>
+                    <input type="number" id="setup-bonus" placeholder="0.00" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button onclick="addIncentiveRule()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl active:bg-blue-700 transition-colors">添加至列表</button>
+            </div>
+            
+            <div class="flex justify-between items-center mb-4 px-2">
+                <h2 class="text-lg font-semibold">已添加列表</h2>
+                <button onclick="toggleEditMode('setup-list', 'edit-setup-btn')" id="edit-setup-btn" class="text-blue-600 text-sm font-medium">編輯</button>
+            </div>
+            <div id="setup-list" class="space-y-3"></div>
+        </section>
+
+        <section id="view-add" class="view hidden">
+            <h2 class="text-lg font-semibold mb-4 text-blue-600" id="add-view-date-title">新增記錄</h2>
+            <div class="bg-white p-6 rounded-2xl shadow-sm space-y-4 mb-8">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">型號</label>
+                    <select id="input-category" onchange="autoFillAmount()" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 p-3 outline-none text-lg"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Incentive ($) - 自動帶入</label>
+                    <input type="number" id="input-amount" readonly placeholder="0.00" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-200 text-gray-500 p-3 text-lg outline-none cursor-not-allowed">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">銷售金額 ($)</label>
+                    <input type="text" id="input-sales" readonly placeholder="請使用下方鍵盤輸入" class="mt-1 block w-full rounded-xl border-blue-200 bg-blue-50 p-3 text-lg outline-none text-blue-700 font-bold text-center">
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-2">
+                    <button onclick="pressKey('1')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">1</button>
+                    <button onclick="pressKey('2')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">2</button>
+                    <button onclick="pressKey('3')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">3</button>
+                    <button onclick="pressKey('4')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">4</button>
+                    <button onclick="pressKey('5')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">5</button>
+                    <button onclick="pressKey('6')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">6</button>
+                    <button onclick="pressKey('7')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">7</button>
+                    <button onclick="pressKey('8')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">8</button>
+                    <button onclick="pressKey('9')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm">9</button>
+                    <button onclick="pressKey('0')" class="bg-gray-100 py-3 rounded-xl text-xl font-bold active:bg-gray-200 shadow-sm col-span-2">0</button>
+                    <button onclick="pressKey('DEL')" class="bg-red-100 py-3 rounded-xl flex justify-center items-center active:bg-red-200 shadow-sm text-red-600">
+                        <i data-lucide="delete" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <input type="hidden" id="selected-date">
+                <button onclick="saveRecord()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl active:bg-blue-700 transition-colors mt-4">確認儲存</button>
+            </div>
+            <div class="flex justify-between items-center mb-4 px-2">
+                <h2 id="record-list-title" class="text-lg font-semibold">已記錄至</h2>
+                <button onclick="toggleEditMode('record-list', 'edit-record-btn')" id="edit-record-btn" class="text-blue-600 text-sm font-medium">編輯</button>
+            </div>
+            <div id="record-list" class="space-y-3"></div>
+        </section>
+
+        <section id="view-summary" class="view hidden">
+            <div class="flex justify-center mb-6 bg-gray-200 rounded-xl p-1 shadow-inner">
+                <button id="btn-daily-sum" onclick="setSummaryMode('daily')" class="flex-1 py-2.5 rounded-lg text-sm font-bold bg-white shadow text-blue-600 transition-all">日結</button>
+                <button id="btn-monthly-sum" onclick="setSummaryMode('monthly')" class="flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-500 transition-all">月結</button>
+            </div>
+            <div id="summary-content" class="space-y-4"></div>
+        </section>
+
+    </main>
+
+    <div id="modal-remark" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-center items-center backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 w-[85%] max-w-sm shadow-xl relative transform scale-100 transition-transform">
+            <h3 class="text-lg font-bold mb-4 text-gray-800">設定當月備注</h3>
+            <textarea id="input-month-remark" rows="4" class="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none" placeholder="請輸入備注事項..."></textarea>
+            <div class="flex justify-end mt-4 space-x-3">
+                <button onclick="closeRemarkModal()" class="px-5 py-2.5 text-gray-500 font-bold active:bg-gray-100 rounded-xl">取消</button>
+                <button onclick="saveMonthRemark()" class="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl active:bg-blue-700 shadow-sm">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="fixed bottom-20 right-4 text-[10px] text-gray-300 font-mono italic">Ver 5.3</div>
+
+    <nav id="bottom-nav" class="fixed bottom-0 w-full bg-white border-t px-6 py-2 flex justify-between items-center z-10">
+        <button onclick="showView('calendar')" class="nav-btn flex flex-col items-center p-2 active-tab" id="btn-calendar">
+            <i data-lucide="calendar" class="w-6 h-6"></i><span class="text-[10px] mt-1">月曆</span>
+        </button>
+        <button onclick="resetToTodayAndAdd()" class="flex flex-col items-center -mt-10 bg-blue-600 text-white p-4 rounded-full shadow-lg active:scale-90 transition-transform" id="btn-add">
+            <i data-lucide="plus" class="w-8 h-8"></i>
+        </button>
+        <button onclick="showView('summary')" class="nav-btn flex flex-col items-center p-2 text-gray-400" id="btn-summary">
+            <i data-lucide="pie-chart" class="w-6 h-6"></i><span class="text-[10px] mt-1">總結</span>
+        </button>
+    </nav>
+
+    <script>
+        lucide.createIcons();
+        let activeYear = new Date().getFullYear();
+        let activeMonth = new Date().getMonth();
+        let summaryMode = 'daily';
+
+        // --- 按鍵聲 ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playClickSound() {
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.05);
+        }
+
+        document.addEventListener('pointerdown', function(e) {
+            if(e.target.closest('button') || e.target.closest('.day-cell')) {
+                playClickSound();
+            }
+        });
+
+        // --- Setup Model Enter 跳轉邏輯 ---
+        document.getElementById('setup-model').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('setup-bonus').focus();
+            }
+        });
+
+        function getMonthKey() {
+            return `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
+        }
+
+        // --- 備注功能邏輯 (Modal & Storage) ---
+        function openRemarkModal() {
+            const remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
+            const monthKey = getMonthKey();
+            document.getElementById('input-month-remark').value = remarks[monthKey] || '';
+            document.getElementById('modal-remark').classList.remove('hidden');
+            setTimeout(() => document.getElementById('input-month-remark').focus(), 100);
+        }
+
+        function closeRemarkModal() {
+            document.getElementById('modal-remark').classList.add('hidden');
+        }
+
+        function saveMonthRemark() {
+            const remarkText = document.getElementById('input-month-remark').value.trim();
+            let remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
+            const monthKey = getMonthKey();
+
+            if (remarkText) {
+                remarks[monthKey] = remarkText;
+            } else {
+                delete remarks[monthKey]; 
+            }
+
+            localStorage.setItem('incentive_remarks', JSON.stringify(remarks));
+            closeRemarkModal();
+            updateRemarkUI();
+        }
+
+        function updateRemarkUI() {
+            const remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
+            const monthKey = getMonthKey();
+            const currentRemark = remarks[monthKey] || '';
+
+            const btnRemark = document.getElementById('btn-setup-remark');
+            if(btnRemark) {
+                if(currentRemark) {
+                    btnRemark.className = "text-xs px-3 py-1.5 rounded-lg bg-green-500 text-white font-bold transition-colors shadow-sm active:scale-95";
+                } else {
+                    btnRemark.className = "text-xs px-3 py-1.5 rounded-lg bg-gray-400 text-white font-bold transition-colors shadow-sm active:scale-95";
+                }
+            }
+
+            const calRemarkDisplay = document.getElementById('calendar-month-remark');
+            if(calRemarkDisplay) {
+                calRemarkDisplay.innerText = currentRemark;
+                if(currentRemark) {
+                    calRemarkDisplay.classList.remove('hidden');
+                } else {
+                    calRemarkDisplay.classList.add('hidden'); 
+                }
+            }
+        }
+
+        function showView(viewName, dateStr = null) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            
+            document.getElementById('header-default').classList.add('hidden');
+            document.getElementById('header-setup').classList.add('hidden');
+            document.getElementById('header-summary').classList.add('hidden');
+            document.getElementById('bottom-nav').classList.remove('hidden');
+
+            if (viewName === 'setup-incentive') {
+                document.getElementById('header-setup').classList.remove('hidden');
+                document.getElementById('bottom-nav').classList.add('hidden');
+                document.getElementById('setup-month-display').innerText = `正在設定: ${activeYear}年 ${activeMonth + 1}月`;
+                updateRemarkUI(); 
+                renderSetupList();
+            } else if (viewName === 'summary') {
+                document.getElementById('header-summary').classList.remove('hidden');
+                renderSummary();
+            } else {
+                document.getElementById('header-default').classList.remove('hidden');
+            }
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active-tab', 'text-gray-400'));
+            if(viewName === 'calendar' || viewName === 'summary') {
+                document.getElementById(`btn-${viewName}`).classList.add('active-tab');
+            } else {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.add('text-gray-400'));
+            }
+
+            if(viewName === 'calendar') renderCalendar();
+            if(viewName === 'add' && dateStr) {
+                document.getElementById('add-view-date-title').innerText = `新增記錄 (${dateStr})`;
+                document.getElementById('record-list-title').innerText = `已記錄至 (${dateStr})`;
+                document.getElementById('selected-date').value = dateStr;
+                populateModelDropdown();
+                renderRecordList(dateStr);
+            }
+            
+            document.getElementById('setup-list').classList.remove('editing');
+            document.getElementById('record-list').classList.remove('editing');
+            document.getElementById('edit-setup-btn').innerText = '編輯';
+            if(document.getElementById('edit-record-btn')) document.getElementById('edit-record-btn').innerText = '編輯';
+        }
+
+        function resetToTodayAndAdd() {
+            const today = new Date();
+            activeYear = today.getFullYear();
+            activeMonth = today.getMonth();
+            renderCalendar();
+            showView('add', today.toLocaleDateString('en-CA'));
+        }
+
+        function pressKey(val) {
+            const salesInput = document.getElementById('input-sales');
+            if (val === 'DEL') {
+                salesInput.value = salesInput.value.slice(0, -1);
+            } else {
+                salesInput.value += val;
+            }
+        }
+
+        function changeMonth(step) {
+            activeMonth += step;
+            if (activeMonth > 11) { activeMonth = 0; activeYear++; }
+            if (activeMonth < 0) { activeMonth = 11; activeYear--; }
+            renderCalendar();
+            if (!document.getElementById('view-summary').classList.contains('hidden')) {
+                renderSummary();
+            }
+        }
+
+        function renderCalendar() {
+            const daysContainer = document.getElementById('calendar-days');
+            daysContainer.innerHTML = '';
+            const firstDay = new Date(activeYear, activeMonth, 1).getDay();
+            const daysInMonth = new Date(activeYear, activeMonth + 1, 0).getDate();
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            
+            const monthText = `${activeYear}年 ${activeMonth + 1}月`;
+            document.getElementById('display-month-year').innerText = monthText;
+            document.getElementById('display-summary-month').innerText = `${activeMonth + 1}月`;
+            
+            const records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
+            const recordDates = new Set(records.map(r => r.date));
+
+            const setups = JSON.parse(localStorage.getItem('incentive_setups') || '{}');
+            const monthSetups = setups[getMonthKey()] || [];
+            const setupBtn = document.getElementById('btn-setup-incentive');
+            if(monthSetups.length > 0) {
+                setupBtn.className = "text-xs font-medium text-white px-3 py-2 rounded-lg transition-colors bg-green-500 active:bg-green-600 shadow-sm";
+            } else {
+                setupBtn.className = "text-xs font-medium text-white px-3 py-2 rounded-lg transition-colors bg-red-500 active:bg-red-600 shadow-sm";
+            }
+
+            for (let i = 0; i < firstDay; i++) { daysContainer.innerHTML += `<div></div>`; }
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = new Date(activeYear, activeMonth, d).toLocaleDateString('en-CA');
+                const isToday = dateStr === todayStr ? 'is-today' : '';
+                const hasData = recordDates.has(dateStr) ? 'has-data' : '';
+                
+                const dayDiv = document.createElement('div');
+                dayDiv.className = `day-cell ${isToday} ${hasData}`;
+                dayDiv.innerText = d;
+                dayDiv.onclick = () => showView('add', dateStr);
+                daysContainer.appendChild(dayDiv);
+            }
+            
+            updateTotal();
+            updateRemarkUI(); 
+        }
+
+        function setSummaryMode(mode) {
+            summaryMode = mode;
+            document.getElementById('btn-daily-sum').className = mode === 'daily' 
+                ? "flex-1 py-2.5 rounded-lg text-sm font-bold bg-white shadow text-blue-600 transition-all" 
+                : "flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-500 transition-all";
+            document.getElementById('btn-monthly-sum').className = mode === 'monthly' 
+                ? "flex-1 py-2.5 rounded-lg text-sm font-bold bg-white shadow text-blue-600 transition-all" 
+                : "flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-500 transition-all";
+            renderSummary();
+        }
+
+        function renderSummary() {
+            const records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
+            const monthPrefix = getMonthKey();
+            const monthRecords = records.filter(r => r.date.startsWith(monthPrefix));
+            const container = document.getElementById('summary-content');
+
+            if (monthRecords.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-400 py-10">此月份暫無數據</p>';
+                return;
+            }
+
+            if (summaryMode === 'daily') {
+                const grouped = {};
+                monthRecords.forEach(r => {
+                    if (!grouped[r.date]) grouped[r.date] = { items: [], totalInc: 0, totalSales: 0 };
+                    grouped[r.date].items.push(r);
+                    grouped[r.date].totalInc += r.amount;
+                    grouped[r.date].totalSales += r.sales;
+                });
+
+                const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+
+                container.innerHTML = sortedDates.map(date => {
+                    const group = grouped[date];
+                    const itemsHtml = group.items.map(item => `
+                        <div class="py-2 border-b border-gray-50 last:border-0">
+                            <div class="font-bold text-gray-700 text-sm mb-0.5">${item.category}</div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-gray-400 font-medium text-[11px]">Incentive:$${item.amount}</span>
+                                <span class="text-gray-400 font-medium text-[11px]">銷售金額:$${item.sales}</span>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    return `
+                        <div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
+                            <div class="flex justify-between items-center border-b pb-3 mb-2">
+                                <h3 class="font-black text-gray-800">${date}</h3>
+                                <div class="text-right">
+                                    <p class="text-blue-600 font-bold text-sm">Incentive:$${group.totalInc}</p>
+                                    <p class="text-gray-500 text-xs mt-0.5">銷售金額:$${group.totalSales}</p>
+                                </div>
+                            </div>
+                            <div class="space-y-1">${itemsHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+
+            } else {
+                const grouped = {};
+                monthRecords.forEach(r => {
+                    if (!grouped[r.category]) grouped[r.category] = { count: 0, totalInc: 0, totalSales: 0 };
+                    grouped[r.category].count += 1;
+                    grouped[r.category].totalInc += r.amount;
+                    grouped[r.category].totalSales += r.sales;
+                });
+
+                const sortedCategories = Object.keys(grouped).sort((a, b) => grouped[b].totalInc - grouped[a].totalInc);
+
+                container.innerHTML = sortedCategories.map(cat => {
+                    const group = grouped[cat];
+                    return `
+                        <div class="bg-white rounded-2xl shadow-sm p-4 flex justify-between items-center mb-3">
+                            <div class="w-1/3">
+                                <p class="font-bold text-gray-800 leading-tight">${cat}</p>
+                                <p class="text-xs text-gray-400 mt-1">數量: ${group.count}</p>
+                            </div>
+                            <div class="text-right w-2/3">
+                                <p class="text-blue-500 font-bold text-lg">Incentive:$${group.totalInc}</p>
+                                <p class="text-gray-500 font-medium text-sm mt-0.5">銷售金額:$${group.totalSales}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function addIncentiveRule() {
+            const model = document.getElementById('setup-model').value.trim();
+            const bonus = document.getElementById('setup-bonus').value;
+            if(!model || !bonus) return alert("請填寫型號及獎金");
+
+            let setups = JSON.parse(localStorage.getItem('incentive_setups') || '{}');
+            let monthKey = getMonthKey();
+            if(!setups[monthKey]) setups[monthKey] = [];
+            if(setups[monthKey].some(item => item.model === model)) return alert("⚠️ 此型號已於本月存在，請勿重複輸入！");
+
+            setups[monthKey].push({ id: Date.now(), model, bonus: parseFloat(bonus) });
+            localStorage.setItem('incentive_setups', JSON.stringify(setups));
+            document.getElementById('setup-model').value = '';
+            document.getElementById('setup-bonus').value = '';
+            document.getElementById('setup-model').focus();
+            renderSetupList();
+        }
+
+        function renderSetupList() {
+            const setups = JSON.parse(localStorage.getItem('incentive_setups') || '{}');
+            const monthSetups = setups[getMonthKey()] || [];
+            
+            document.getElementById('setup-list').innerHTML = monthSetups.map(item => `
+                <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm relative overflow-hidden">
+                    <div class="flex-1 flex items-center gap-3">
+                        <p class="font-bold text-gray-800">${item.model}</p>
+                        <p class="text-sm text-blue-600 font-medium">Incentive:$${item.bonus}</p>
+                    </div>
+                    <button onclick="deleteSetup(${item.id}, '${item.model}')" class="delete-btn bg-red-500 text-white h-full px-4 items-center justify-center absolute right-0 top-0 active:bg-red-600">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            `).join('') || '<p class="text-center text-gray-400 text-sm py-4">本月尚未設定任何型號</p>';
+            lucide.createIcons();
+        }
+
+        function deleteSetup(id, modelName) {
+            let records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
+            const monthKey = getMonthKey();
+            const relatedRecords = records.filter(r => r.category === modelName && r.date.startsWith(monthKey));
+
+            if (relatedRecords.length > 0) {
+                if(!confirm(`⚠️ 此型號「${modelName}」已有輸入數據，會被一併刪除！\n\n確定繼續嗎？`)) return;
+                records = records.filter(r => !(r.category === modelName && r.date.startsWith(monthKey)));
+                localStorage.setItem('incentive_records', JSON.stringify(records));
+            } else {
+                if(!confirm("確定要刪除此型號設定嗎？")) return;
+            }
+
+            let setups = JSON.parse(localStorage.getItem('incentive_setups') || '{}');
+            setups[monthKey] = setups[monthKey].filter(item => item.id !== id);
+            localStorage.setItem('incentive_setups', JSON.stringify(setups));
+            
+            renderSetupList();
+            renderCalendar();
+            updateTotal();
+        }
+
+        function populateModelDropdown() {
+            const select = document.getElementById('input-category');
+            const setups = JSON.parse(localStorage.getItem('incentive_setups') || '{}');
+            const monthSetups = setups[getMonthKey()] || [];
+            select.innerHTML = '<option value="">-- 請選擇型號 --</option>' + 
+                monthSetups.map(item => `<option value="${item.model}" data-bonus="${item.bonus}">${item.model}</option>`).join('');
+            document.getElementById('input-amount').value = '';
+            document.getElementById('input-sales').value = '';
+        }
+
+        function autoFillAmount() {
+            const select = document.getElementById('input-category');
+            const selectedOption = select.options[select.selectedIndex];
+            document.getElementById('input-amount').value = selectedOption && selectedOption.dataset.bonus ? selectedOption.dataset.bonus : '';
+        }
+
+        function saveRecord() {
+            const category = document.getElementById('input-category').value;
+            const amount = document.getElementById('input-amount').value;
+            const sales = document.getElementById('input-sales').value;
+            const date = document.getElementById('selected-date').value;
+
+            if(!category || !amount || !sales) return alert('請選擇型號並輸入銷售金額');
+
+            const newRecord = { id: Date.now(), date, category, amount: parseFloat(amount), sales: parseFloat(sales) };
+            let records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
+            records.unshift(newRecord);
+            localStorage.setItem('incentive_records', JSON.stringify(records));
+
+            document.getElementById('input-category').value = '';
+            document.getElementById('input-amount').value = '';
+            document.getElementById('input-sales').value = '';
+            
+            renderRecordList(date);
+            renderCalendar();
+            updateTotal();
+        }
+
+        function renderRecordList(dateStr) {
+            const records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
+            const dayRecords = records.filter(r => r.date === dateStr);
+            
+            document.getElementById('record-list').innerHTML = dayRecords.map(r => `
+                <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm relative overflow-hidden">
+                    <div class="flex-1">
+                        <div class="font-bold text-gray-800 text-sm mb-1">${r.category}</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-blue-500 font-bold text-base">Incentive:$${r.amount}</span>
+                            <span class="text-gray-400 font-medium text-xs">銷售金額:$${r.sales}</span>
+                        </div>
+                    </div>
+                    <button onclick="deleteRecord(${r.id}, '${dateStr}')" class="delete-btn bg-red-500 text-white h-full px-4 items-center justify-center absolute right-0 top-0 active:bg-red-600">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            `).join('') || '<p class="text-center text-gray-400 text-sm py-4">此日暫無記錄</p>';
+            lucide.createIcons();
+        }
+
+        function deleteRecord(id, dateStr) {
+            if(!confirm("確定要刪除此記錄嗎？")) return;
+            let records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
+            records = records.filter(r => r.id !== id);
+            localStorage.setItem('incentive_records', JSON.stringify(records));
+            renderRecordList(dateStr);
+            renderCalendar();
+            updateTotal();
+        }
+
+        function toggleEditMode(listId, btnId) {
+            const list = document.getElementById(listId);
+            const btn = document.getElementById(btnId);
+            list.classList.toggle('editing');
+            btn.innerText = list.classList.contains('editing') ? '完成' : '編輯';
+        }
+
+        function updateTotal() {
+            const records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
+            const monthPrefix = getMonthKey();
+            const monthRecords = records.filter(r => r.date.startsWith(monthPrefix));
+            
+            const totalAmount = monthRecords.reduce((sum, r) => sum + r.amount, 0);
+            const totalSales = monthRecords.reduce((sum, r) => sum + (r.sales || 0), 0);
+            
+            document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
+            document.getElementById('totalSales').innerText = totalSales.toLocaleString();
+            
+            document.getElementById('summaryTotalAmount').innerText = totalAmount.toLocaleString();
+            document.getElementById('summaryTotalSales').innerText = totalSales.toLocaleString();
+        }
+
+        // 首次啟動渲染
+        renderCalendar();
+    </script>
+</body>
+</html>
