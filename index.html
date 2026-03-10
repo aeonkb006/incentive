@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Incentive Tracker</title>
     
-    <meta name="apple-mobile-web-app-capable" content="yes"> 
-    <meta name="mobile-web-app-capable" content="yes"> <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> 
-    <meta name="theme-color" content="#ffffff"> <meta name="apple-mobile-web-app-title" content="Incentives"> 
-    <link rel="apple-touch-icon" href="icon.png"> 
-    <link rel="icon" type="image/png" href="icon.png"> 
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Incentives">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -47,7 +47,7 @@
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans">
 
-    <header class="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b z-10 pt-[max(env(safe-area-inset-top),12px)]">
+    <header class="sticky top-0 w-full bg-white/80 backdrop-blur-md border-b z-40 pt-[env(safe-area-inset-top)]">
         <div class="px-6 py-4 flex justify-between items-center relative">
             <div id="header-default" class="flex justify-between items-center w-full">
                 <h1 class="text-xl font-bold" id="display-month-year">2024年 5月</h1>
@@ -80,7 +80,7 @@
         </div>
     </header>
 
-    <main class="pt-32 pb-32 px-6">
+    <main class="pt-6 pb-32 px-6">
         
         <section id="view-calendar" class="view">
             <div class="flex justify-between items-center mb-6">
@@ -189,7 +189,7 @@
 
     <div class="fixed bottom-20 right-4 text-[10px] text-gray-300 font-mono italic">Ver 5.4</div>
 
-    <nav id="bottom-nav" class="fixed bottom-0 w-full bg-white border-t px-6 py-2 flex justify-between items-center z-10">
+    <nav id="bottom-nav" class="fixed bottom-0 w-full bg-white border-t px-6 py-2 flex justify-between items-center z-40">
         <button onclick="showView('calendar')" class="nav-btn flex flex-col items-center p-2 active-tab" id="btn-calendar">
             <i data-lucide="calendar" class="w-6 h-6"></i><span class="text-[10px] mt-1">月曆</span>
         </button>
@@ -297,6 +297,9 @@
         function showView(viewName, dateStr = null) {
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            
+            // 當前頁面置頂，防止切換頁面時停留喺卷軸底部
+            window.scrollTo(0, 0);
             
             document.getElementById('header-default').classList.add('hidden');
             document.getElementById('header-setup').classList.add('hidden');
