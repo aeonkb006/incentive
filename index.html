@@ -14,30 +14,42 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        /* 終極大絕：鎖死螢幕四角，免疫 Chrome iOS 白邊 Bug */
         body {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            background-color: #f9fafb; /* 統一背景色 */
             -webkit-tap-highlight-color: transparent;
             -webkit-touch-callout: none; 
             -webkit-user-select: none;   
             user-select: none;
-            touch-action: manipulation;  
-            /* 刪除咗 body 嘅 padding-bottom，將 safe-area 交俾導航欄處理 */
+            overflow: hidden; /* 鎖死整個畫面唔俾彈跳 */
         }
+        
         input, select, textarea {
             -webkit-user-select: auto;
             user-select: auto;
         }
 
+        /* 只有中間內容區可以滾動 */
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 安全區 Padding，確保唔會被動態島同底部黑線遮住 */
+        .header-safe { padding-top: max(1rem, env(safe-area-inset-top)); }
+        .nav-safe { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+
         .active-tab { color: #3b82f6; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
         .day-cell { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; z-index: 1;}
         .has-data::after { 
-            content: ''; 
-            position: absolute; 
-            top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 32px; height: 32px; 
-            background-color: #ffedd5; 
-            border-radius: 50%; 
-            z-index: -1; 
+            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 32px; height: 32px; background-color: #ffedd5; border-radius: 50%; z-index: -1; 
         }
         .is-today { color: #3b82f6; font-weight: bold; }
         .sun-text { color: #ef4444; }
@@ -45,10 +57,11 @@
         .editing .delete-btn { display: flex; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans">
+<body class="text-gray-900 font-sans">
 
-    <header class="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b z-10 pt-[env(safe-area-inset-top)]">
+    <header class="bg-white/90 backdrop-blur-md border-b z-20 flex-none header-safe shadow-sm">
         <div class="px-6 py-4 flex justify-between items-center relative">
+            
             <div id="header-default" class="flex justify-between items-center w-full">
                 <h1 class="text-xl font-bold" id="display-month-year">2024年 5月</h1>
                 <div class="text-right">
@@ -77,10 +90,11 @@
                     <p class="text-xs text-gray-500 font-medium">(總銷售金額 $<span id="summaryTotalSales">0</span>)</p>
                 </div>
             </div>
+
         </div>
     </header>
 
-    <main class="pt-[calc(6rem+env(safe-area-inset-top))] pb-[calc(8rem+env(safe-area-inset-bottom))] px-6">
+    <main class="scroll-area px-6 py-6 relative">
         
         <section id="view-calendar" class="view">
             <div class="flex justify-between items-center mb-6">
@@ -174,6 +188,8 @@
             <div id="summary-content" class="space-y-4"></div>
         </section>
 
+        <div class="text-center text-[10px] text-gray-300 font-mono italic mt-8 pb-4">Ver 5.5</div>
+
     </main>
 
     <div id="modal-remark" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-center items-center backdrop-blur-sm">
@@ -187,13 +203,11 @@
         </div>
     </div>
 
-    <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 text-[10px] text-gray-300 font-mono italic z-0">Ver 5.4</div>
-
-    <nav id="bottom-nav" class="fixed bottom-0 w-full bg-white border-t px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-between items-center z-10">
+    <nav id="bottom-nav" class="bg-white border-t px-6 pt-2 nav-safe flex-none flex justify-between items-center z-20 w-full relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <button onclick="showView('calendar')" class="nav-btn flex flex-col items-center p-2 active-tab" id="btn-calendar">
             <i data-lucide="calendar" class="w-6 h-6"></i><span class="text-[10px] mt-1">月曆</span>
         </button>
-        <button onclick="resetToTodayAndAdd()" class="flex flex-col items-center -mt-8 bg-blue-600 text-white p-4 rounded-full shadow-lg active:scale-90 transition-transform relative z-20" id="btn-add">
+        <button onclick="resetToTodayAndAdd()" class="flex flex-col items-center -mt-12 bg-blue-600 text-white p-4 rounded-full shadow-lg active:scale-90 transition-transform relative z-30" id="btn-add">
             <i data-lucide="plus" class="w-8 h-8"></i>
         </button>
         <button onclick="showView('summary')" class="nav-btn flex flex-col items-center p-2 text-gray-400" id="btn-summary">
@@ -242,7 +256,6 @@
             return `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
         }
 
-        // --- 備注功能邏輯 ---
         function openRemarkModal() {
             const remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
             const monthKey = getMonthKey();
