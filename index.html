@@ -20,7 +20,7 @@
             -webkit-user-select: none;   
             user-select: none;
             touch-action: manipulation;  
-            /* 移除了 body 嘅 padding-bottom，避免干擾底欄定位 */
+            background-color: #f9fafb; /* 確保拉到底都係灰色背景 */
         }
         input, select, textarea {
             -webkit-user-select: auto;
@@ -43,11 +43,16 @@
         .sun-text { color: #ef4444; }
         .delete-btn { display: none; }
         .editing .delete-btn { display: flex; }
+        
+        /* 終極解決底部懸空問題：強制定死喺最底，並包埋安全區 */
+        .safe-bottom-nav {
+            padding-bottom: calc(env(safe-area-inset-bottom) + 8px); 
+        }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans">
+<body class="bg-gray-50 text-gray-900 font-sans min-h-screen">
 
-    <header class="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b z-10 pt-[env(safe-area-inset-top)]">
+    <header class="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b z-30 pt-[env(safe-area-inset-top)]">
         <div class="px-6 py-4 flex justify-between items-center relative">
             <div id="header-default" class="flex justify-between items-center w-full">
                 <h1 class="text-xl font-bold" id="display-month-year">2024年 5月</h1>
@@ -80,7 +85,7 @@
         </div>
     </header>
 
-    <main class="pt-24 pb-32 px-6">
+    <main class="pt-[calc(6rem+env(safe-area-inset-top))] pb-[calc(8rem+env(safe-area-inset-bottom))] px-6">
         
         <section id="view-calendar" class="view">
             <div class="flex justify-between items-center mb-6">
@@ -187,24 +192,26 @@
         </div>
     </div>
 
-    <div class="fixed bottom-20 right-4 text-[10px] text-gray-300 font-mono italic z-0">Ver 5.5</div>
+    <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 text-[10px] text-gray-300 font-mono italic z-0">Ver 5.5</div>
 
-    <nav id="bottom-nav" class="fixed bottom-0 w-full bg-white border-t px-8 pt-3 flex justify-between items-center z-10" style="padding-bottom: max(env(safe-area-inset-bottom), 12px);">
-        
-        <button onclick="showView('calendar')" class="nav-btn flex flex-col items-center p-2 active-tab" id="btn-calendar">
-            <i data-lucide="calendar" class="w-6 h-6"></i>
-            <span class="text-[10px] mt-1 font-medium">月曆</span>
-        </button>
-        
-        <button onclick="resetToTodayAndAdd()" class="absolute left-1/2 -translate-x-1/2 -top-6 w-16 h-16 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform z-20" id="btn-add">
-            <i data-lucide="plus" class="w-8 h-8"></i>
-        </button>
-        
-        <button onclick="showView('summary')" class="nav-btn flex flex-col items-center p-2 text-gray-400" id="btn-summary">
-            <i data-lucide="pie-chart" class="w-6 h-6"></i>
-            <span class="text-[10px] mt-1 font-medium">總結</span>
-        </button>
+    <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white border-t z-50 safe-bottom-nav">
+        <div class="px-6 pt-3 flex justify-between items-center relative">
+            
+            <button onclick="showView('calendar')" class="nav-btn flex flex-col items-center p-2 active-tab" id="btn-calendar">
+                <i data-lucide="calendar" class="w-6 h-6"></i><span class="text-[10px] mt-1">月曆</span>
+            </button>
+            
+            <div class="absolute left-1/2 -translate-x-1/2 -top-8">
+                <button onclick="resetToTodayAndAdd()" class="flex flex-col items-center justify-center bg-blue-600 text-white w-16 h-16 rounded-full shadow-lg active:scale-95 transition-transform" id="btn-add">
+                    <i data-lucide="plus" class="w-8 h-8"></i>
+                </button>
+            </div>
+            
+            <button onclick="showView('summary')" class="nav-btn flex flex-col items-center p-2 text-gray-400" id="btn-summary">
+                <i data-lucide="pie-chart" class="w-6 h-6"></i><span class="text-[10px] mt-1">總結</span>
+            </button>
 
+        </div>
     </nav>
 
     <script>
@@ -236,7 +243,6 @@
             }
         });
 
-        // --- Setup Model Enter 跳轉邏輯 ---
         document.getElementById('setup-model').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -248,7 +254,6 @@
             return `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
         }
 
-        // --- 備注功能邏輯 ---
         function openRemarkModal() {
             const remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
             const monthKey = getMonthKey();
