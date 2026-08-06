@@ -20,11 +20,23 @@
             -webkit-user-select: none;   
             user-select: none;
             touch-action: manipulation;  
-            background-color: #f9fafb; /* 確保拉到底都係灰色背景 */
+            background-color: #f9fafb;
+            /* 防止 iOS 彈性捲動導致背景位移 */
+            overscroll-behavior-y: none;
         }
         input, select, textarea {
             -webkit-user-select: auto;
             user-select: auto;
+        }
+
+        /* 隱藏數字輸入框嘅上下箭嘴 */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
         }
 
         .active-tab { color: #3b82f6; }
@@ -44,58 +56,72 @@
         .delete-btn { display: none; }
         .editing .delete-btn { display: flex; }
         
-        /* 終極解決底部懸空問題：強制定死喺最底，並包埋安全區 */
         .safe-bottom-nav {
             padding-bottom: calc(env(safe-area-inset-bottom) + 8px); 
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans min-h-screen">
+<body class="bg-gray-50 text-gray-900 font-sans min-h-screen relative">
 
     <header class="fixed top-0 w-full bg-white/80 backdrop-blur-md border-b z-30 pt-[env(safe-area-inset-top)]">
-        <div class="px-6 py-4 flex justify-between items-center relative">
+        <div class="px-4 py-3 flex justify-between items-center relative min-h-[72px]">
+            
+            <!-- 首頁 Header 狀態 -->
             <div id="header-default" class="flex justify-between items-center w-full">
-                <h1 class="text-xl font-bold" id="display-month-year">2024年 5月</h1>
-                <div class="text-right">
-                    <p class="text-2xl font-black text-blue-600">Incentive $<span id="totalAmount">0</span></p>
-                    <p class="text-xs text-gray-500 font-medium">(總銷售金額 $<span id="totalSales">0</span>)</p>
+                <!-- 左側：總生意額及設定 (上下排列，維持按鈕大小) -->
+                <div class="flex flex-col space-y-1.5 z-10 shrink-0">
+                    <button id="btn-input-volume" onclick="openVolumeModal()" class="text-[11px] font-medium text-white px-2 py-1 rounded-lg transition-colors shadow-sm active:scale-95 w-[68px] text-center bg-gray-400">總生意額</button>
+                    <button id="btn-setup-incentive" onclick="showView('setup-incentive')" class="text-[11px] font-medium text-white px-2 py-1 rounded-lg transition-colors shadow-sm active:scale-95 w-[68px] text-center bg-gray-400">設定</button>
+                </div>
+                
+                <!-- 中間：左右箭嘴夾住日期 -->
+                <div class="absolute left-1/2 -translate-x-1/2 flex items-center space-x-1 z-0 whitespace-nowrap">
+                    <button onclick="changeMonth(-1)" class="p-1.5 active:bg-gray-100 rounded-full text-gray-600"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                    <h1 class="text-[15px] font-bold text-center w-[85px]" id="display-month-year">2024年 5月</h1>
+                    <button onclick="changeMonth(1)" class="p-1.5 active:bg-gray-100 rounded-full text-gray-600"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                </div>
+
+                <!-- 右側：統計 -->
+                <div class="text-right z-10 shrink-0 max-w-[45%]">
+                    <p class="text-[18px] sm:text-xl font-black text-blue-600 leading-tight">總佣金 $<span id="grandTotal">0</span></p>
+                    <p class="text-[9px] sm:text-[10px] text-gray-500 font-medium mt-0.5 whitespace-nowrap">Inc:$<span id="totalInc">0</span> | 佣金:$<span id="totalVolComm">0</span></p>
+                    <p class="text-[9px] sm:text-[10px] text-gray-400 font-medium whitespace-nowrap">(Inc銷售總額 $<span id="totalIncSales">0</span>)</p>
                 </div>
             </div>
 
+            <!-- 設定頁面 Header 狀態 -->
             <div id="header-setup" class="hidden flex justify-between items-center w-full">
-                <button onclick="showView('calendar')" class="text-blue-600 flex items-center">
+                <button onclick="showView('calendar')" class="text-blue-600 flex items-center shrink-0 w-16">
                     <i data-lucide="chevron-left" class="w-6 h-6"></i>
                     <span>返回</span>
                 </button>
-                <h1 class="text-lg font-bold">添加型號及獎金</h1>
-                <div class="w-12"></div>
+                <h1 class="text-lg font-bold absolute left-1/2 -translate-x-1/2 whitespace-nowrap">各種設定</h1>
+                <div class="w-16 shrink-0"></div> <!-- 佔位符以保持置中 -->
             </div>
 
+            <!-- 總結頁面 Header 狀態 -->
             <div id="header-summary" class="hidden flex justify-between items-center w-full">
-                <div class="flex items-center space-x-2 -ml-2">
-                    <button onclick="changeMonth(-1)" class="p-2 active:bg-gray-100 rounded-full text-gray-600"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
-                    <h1 class="text-xl font-bold w-24 text-center" id="display-summary-month">2024年 5月</h1>
-                    <button onclick="changeMonth(1)" class="p-2 active:bg-gray-100 rounded-full text-gray-600"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>
+                <div class="w-[68px] shrink-0 pointer-events-none opacity-0">
+                    <button class="text-[11px] px-2 py-1 w-full">佔位</button>
                 </div>
-                <div class="text-right">
-                    <p class="text-2xl font-black text-blue-600">Incentive $<span id="summaryTotalAmount">0</span></p>
-                    <p class="text-xs text-gray-500 font-medium">(總銷售金額 $<span id="summaryTotalSales">0</span>)</p>
+                <div class="absolute left-1/2 -translate-x-1/2 flex items-center space-x-1 z-0 whitespace-nowrap">
+                    <button onclick="changeMonth(-1)" class="p-1.5 active:bg-gray-100 rounded-full text-gray-600"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                    <h1 class="text-[15px] font-bold text-center w-[85px]" id="display-summary-month">2024年 5月</h1>
+                    <button onclick="changeMonth(1)" class="p-1.5 active:bg-gray-100 rounded-full text-gray-600"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                </div>
+                <div class="text-right z-10 shrink-0 max-w-[45%]">
+                    <p class="text-[18px] sm:text-xl font-black text-blue-600 leading-tight">總佣金 $<span id="summaryGrandTotal">0</span></p>
+                    <p class="text-[9px] sm:text-[10px] text-gray-500 font-medium mt-0.5 whitespace-nowrap">Inc:$<span id="summaryTotalInc">0</span> | 佣金:$<span id="summaryTotalVolComm">0</span></p>
+                    <p class="text-[9px] sm:text-[10px] text-gray-400 font-medium whitespace-nowrap">(Inc銷售總額 $<span id="summaryTotalIncSales">0</span>)</p>
                 </div>
             </div>
         </div>
     </header>
 
-    <main class="pt-[calc(6rem+env(safe-area-inset-top))] pb-[calc(8rem+env(safe-area-inset-bottom))] px-6">
+    <main class="pt-[calc(5rem+env(safe-area-inset-top))] pb-[calc(8rem+env(safe-area-inset-bottom))] px-6">
         
-        <section id="view-calendar" class="view">
-            <div class="flex justify-between items-center mb-6">
-                <div class="flex space-x-4 items-center">
-                    <button onclick="changeMonth(-1)" class="p-2 bg-white rounded-full shadow-sm active:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                    <button onclick="changeMonth(1)" class="p-2 bg-white rounded-full shadow-sm active:bg-gray-100"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-                </div>
-                <button id="btn-setup-incentive" onclick="showView('setup-incentive')" class="text-xs font-medium text-white px-3 py-2 rounded-lg transition-colors">設定當月 Incentive</button>
-            </div>
-            
+        <section id="view-calendar" class="view mt-2">
+            <!-- 頂部按鈕已移至固定 Header，此處留空隙 -->
             <div class="bg-white rounded-2xl shadow-sm p-4">
                 <div class="calendar-grid mb-2 text-center text-xs font-bold text-gray-400">
                     <div class="sun-text">Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
@@ -106,32 +132,55 @@
             <div id="calendar-month-remark" class="mt-4 text-center text-xs text-gray-400 whitespace-pre-wrap break-words px-4 leading-relaxed"></div>
         </section>
 
-        <section id="view-setup-incentive" class="view hidden">
+        <section id="view-setup-incentive" class="view hidden mt-2">
+            <div class="flex justify-center mb-4 bg-gray-200 rounded-xl p-1 shadow-inner">
+                <button id="tab-btn-inc" onclick="setSetupTab('inc')" class="flex-1 py-2.5 rounded-lg text-sm font-bold bg-white shadow text-blue-600 transition-all">當月Incentive</button>
+                <button id="tab-btn-vol" onclick="setSetupTab('vol')" class="flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-500 transition-all">銷售額佣金</button>
+            </div>
+
             <div class="flex justify-center items-center mb-4 space-x-4">
                 <p class="text-gray-500 font-medium" id="setup-month-display">正在設定: 2024年 5月</p>
+                <!-- 備注按鈕僅在當月Incentive顯示 -->
                 <button id="btn-setup-remark" onclick="openRemarkModal()" class="text-xs px-3 py-1.5 rounded-lg bg-gray-400 text-white font-bold transition-colors shadow-sm active:scale-95">備注</button>
             </div>
 
-            <div class="bg-white p-6 rounded-2xl shadow-sm space-y-4 mb-8">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">型號</label>
-                    <input type="text" id="setup-model" placeholder="-請輸入型號-" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 p-3 outline-none focus:ring-2 focus:ring-blue-500">
+            <!-- Tab: 當月 Incentive (原有邏輯) -->
+            <div id="setup-content-inc" class="setup-tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-sm space-y-4 mb-8">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">型號</label>
+                        <input type="text" id="setup-model" placeholder="-請輸入型號-" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">獎金 ($)</label>
+                        <input type="number" id="setup-bonus" placeholder="0.00" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button onclick="addIncentiveRule()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl active:bg-blue-700 transition-colors">添加至列表</button>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">獎金 ($)</label>
-                    <input type="number" id="setup-bonus" placeholder="0.00" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h2 class="text-lg font-semibold">已添加列表</h2>
+                    <button onclick="toggleEditMode('setup-list', 'edit-setup-btn')" id="edit-setup-btn" class="text-blue-600 text-sm font-medium">編輯</button>
                 </div>
-                <button onclick="addIncentiveRule()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl active:bg-blue-700 transition-colors">添加至列表</button>
+                <div id="setup-list" class="space-y-3"></div>
             </div>
-            
-            <div class="flex justify-between items-center mb-4 px-2">
-                <h2 class="text-lg font-semibold">已添加列表</h2>
-                <button onclick="toggleEditMode('setup-list', 'edit-setup-btn')" id="edit-setup-btn" class="text-blue-600 text-sm font-medium">編輯</button>
+
+            <!-- Tab: 銷售額佣金 (10個等級) -->
+            <div id="setup-content-vol" class="setup-tab-content hidden">
+                <div class="bg-white p-4 rounded-2xl shadow-sm mb-4">
+                    <p class="text-xs text-gray-500 mb-4 leading-relaxed">
+                        設定完成後將自動套用於<span class="font-bold text-blue-600">當月及未來月份</span>。<br>
+                        系統會自動尋找符合當月「總生意額」嘅最高等級進行 % 計算。
+                    </p>
+                    <div id="setup-vol-list" class="space-y-2">
+                        <!-- 由 JS 動態生成 10 個等級輸入框 -->
+                    </div>
+                    <button onclick="saveVolumeTiers()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl active:bg-blue-700 transition-colors mt-4 shadow-md">儲存全部佣金等級</button>
+                </div>
             </div>
-            <div id="setup-list" class="space-y-3"></div>
         </section>
 
-        <section id="view-add" class="view hidden">
+        <section id="view-add" class="view hidden mt-2">
             <h2 class="text-lg font-semibold mb-4 text-blue-600" id="add-view-date-title">新增記錄</h2>
             <div class="bg-white p-6 rounded-2xl shadow-sm space-y-4 mb-8">
                 <div>
@@ -143,7 +192,7 @@
                     <input type="number" id="input-amount" readonly placeholder="0.00" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-200 text-gray-500 p-3 text-lg outline-none cursor-not-allowed">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">銷售金額 ($)</label>
+                    <label class="block text-sm font-medium text-gray-700">Inc銷售金額 ($)</label>
                     <input type="text" id="input-sales" readonly placeholder="請使用下方鍵盤輸入" class="mt-1 block w-full rounded-xl border-blue-200 bg-blue-50 p-3 text-lg outline-none text-blue-700 font-bold text-center">
                 </div>
                 <div class="grid grid-cols-3 gap-2 mt-2">
@@ -171,7 +220,7 @@
             <div id="record-list" class="space-y-3"></div>
         </section>
 
-        <section id="view-summary" class="view hidden">
+        <section id="view-summary" class="view hidden mt-2">
             <div class="flex justify-center mb-6 bg-gray-200 rounded-xl p-1 shadow-inner">
                 <button id="btn-daily-sum" onclick="setSummaryMode('daily')" class="flex-1 py-2.5 rounded-lg text-sm font-bold bg-white shadow text-blue-600 transition-all">日結</button>
                 <button id="btn-monthly-sum" onclick="setSummaryMode('monthly')" class="flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-500 transition-all">月結</button>
@@ -181,6 +230,7 @@
 
     </main>
 
+    <!-- 備注彈窗 -->
     <div id="modal-remark" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-center items-center backdrop-blur-sm">
         <div class="bg-white rounded-2xl p-6 w-[85%] max-w-sm shadow-xl relative transform scale-100 transition-transform">
             <h3 class="text-lg font-bold mb-4 text-gray-800">設定當月備注</h3>
@@ -192,25 +242,37 @@
         </div>
     </div>
 
-    <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 text-[10px] text-gray-300 font-mono italic z-0">Ver 5.5</div>
+    <!-- 總生意額彈窗 -->
+    <div id="modal-volume" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-center items-center backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 w-[85%] max-w-sm shadow-xl relative transform scale-100 transition-transform">
+            <h3 class="text-lg font-bold mb-2 text-gray-800" id="volume-modal-title">輸入總生意額</h3>
+            <p class="text-xs text-gray-500 mb-4">用作計算當月之「銷售額佣金」</p>
+            <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                <input type="number" id="input-total-volume" class="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 pl-8 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-lg font-bold" placeholder="0.00">
+            </div>
+            <div class="flex justify-end mt-6 space-x-3">
+                <button onclick="closeVolumeModal()" class="px-5 py-2.5 text-gray-500 font-bold active:bg-gray-100 rounded-xl">取消</button>
+                <button onclick="saveTotalVolume()" class="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl active:bg-blue-700 shadow-sm">確認儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 text-[10px] text-gray-300 font-mono italic z-0 pointer-events-none">Ver 6.2</div>
 
     <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white border-t z-50 safe-bottom-nav">
         <div class="px-6 pt-3 flex justify-between items-center relative">
-            
             <button onclick="showView('calendar')" class="nav-btn flex flex-col items-center p-2 active-tab" id="btn-calendar">
                 <i data-lucide="calendar" class="w-6 h-6"></i><span class="text-[10px] mt-1">月曆</span>
             </button>
-            
             <div class="absolute left-1/2 -translate-x-1/2 -top-8">
                 <button onclick="resetToTodayAndAdd()" class="flex flex-col items-center justify-center bg-blue-600 text-white w-16 h-16 rounded-full shadow-lg active:scale-95 transition-transform" id="btn-add">
                     <i data-lucide="plus" class="w-8 h-8"></i>
                 </button>
             </div>
-            
             <button onclick="showView('summary')" class="nav-btn flex flex-col items-center p-2 text-gray-400" id="btn-summary">
                 <i data-lucide="pie-chart" class="w-6 h-6"></i><span class="text-[10px] mt-1">總結</span>
             </button>
-
         </div>
     </nav>
 
@@ -219,8 +281,21 @@
         let activeYear = new Date().getFullYear();
         let activeMonth = new Date().getMonth();
         let summaryMode = 'daily';
+        let setupTabMode = 'inc';
+        let initialVolState = null; // 用作防呆機制：儲存進入時嘅狀態
 
-        // --- 按鍵聲 ---
+        // 解決 iOS 鍵盤彈出後導致畫面往上捲動卡住的問題
+        document.addEventListener('focusout', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                setTimeout(() => {
+                    const active = document.activeElement;
+                    if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                }, 100);
+            }
+        });
+
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playClickSound() {
             if (audioCtx.state === 'suspended') { audioCtx.resume(); }
@@ -254,60 +329,71 @@
             return `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
         }
 
+        // --- 防呆機制核心函數 ---
+        function getVolInputsState() {
+            let state = [];
+            for (let i = 0; i < 10; i++) {
+                let targetInput = document.getElementById(`tier-target-${i}`);
+                let percentInput = document.getElementById(`tier-percent-${i}`);
+                if (targetInput && percentInput) {
+                    state.push({ target: targetInput.value, percent: percentInput.value });
+                }
+            }
+            return JSON.stringify(state);
+        }
+
+        function hasUnsavedVolChanges() {
+            if (initialVolState === null) return false;
+            return getVolInputsState() !== initialVolState;
+        }
+
+        // --- 備注與總生意額彈窗 ---
         function openRemarkModal() {
             const remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
-            const monthKey = getMonthKey();
-            document.getElementById('input-month-remark').value = remarks[monthKey] || '';
+            document.getElementById('input-month-remark').value = remarks[getMonthKey()] || '';
             document.getElementById('modal-remark').classList.remove('hidden');
             setTimeout(() => document.getElementById('input-month-remark').focus(), 100);
         }
-
-        function closeRemarkModal() {
-            document.getElementById('modal-remark').classList.add('hidden');
-        }
-
+        function closeRemarkModal() { document.getElementById('modal-remark').classList.add('hidden'); }
         function saveMonthRemark() {
             const remarkText = document.getElementById('input-month-remark').value.trim();
             let remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
-            const monthKey = getMonthKey();
-
-            if (remarkText) {
-                remarks[monthKey] = remarkText;
-            } else {
-                delete remarks[monthKey]; 
-            }
-
+            if (remarkText) remarks[getMonthKey()] = remarkText;
+            else delete remarks[getMonthKey()]; 
             localStorage.setItem('incentive_remarks', JSON.stringify(remarks));
             closeRemarkModal();
             updateRemarkUI();
         }
 
-        function updateRemarkUI() {
-            const remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
-            const monthKey = getMonthKey();
-            const currentRemark = remarks[monthKey] || '';
-
-            const btnRemark = document.getElementById('btn-setup-remark');
-            if(btnRemark) {
-                if(currentRemark) {
-                    btnRemark.className = "text-xs px-3 py-1.5 rounded-lg bg-green-500 text-white font-bold transition-colors shadow-sm active:scale-95";
-                } else {
-                    btnRemark.className = "text-xs px-3 py-1.5 rounded-lg bg-gray-400 text-white font-bold transition-colors shadow-sm active:scale-95";
-                }
-            }
-
-            const calRemarkDisplay = document.getElementById('calendar-month-remark');
-            if(calRemarkDisplay) {
-                calRemarkDisplay.innerText = currentRemark;
-                if(currentRemark) {
-                    calRemarkDisplay.classList.remove('hidden');
-                } else {
-                    calRemarkDisplay.classList.add('hidden'); 
-                }
-            }
+        function openVolumeModal() {
+            const volumes = JSON.parse(localStorage.getItem('business_volumes') || '{}');
+            document.getElementById('volume-modal-title').innerText = `${activeYear}年 ${activeMonth + 1}月 - 總生意額`;
+            document.getElementById('input-total-volume').value = volumes[getMonthKey()] || '';
+            document.getElementById('modal-volume').classList.remove('hidden');
+            setTimeout(() => document.getElementById('input-total-volume').focus(), 100);
+        }
+        function closeVolumeModal() { document.getElementById('modal-volume').classList.add('hidden'); }
+        function saveTotalVolume() {
+            const vol = parseFloat(document.getElementById('input-total-volume').value);
+            let volumes = JSON.parse(localStorage.getItem('business_volumes') || '{}');
+            if (!isNaN(vol)) volumes[getMonthKey()] = vol;
+            else delete volumes[getMonthKey()];
+            localStorage.setItem('business_volumes', JSON.stringify(volumes));
+            closeVolumeModal();
+            updateTotal();
+            updateTopButtonsUI();
         }
 
+        // --- 頁面切換 ---
         function showView(viewName, dateStr = null) {
+            // 防呆：攔截所有跳轉離開「設定頁面」的操作
+            if (!document.getElementById('view-setup-incentive').classList.contains('hidden') && setupTabMode === 'vol') {
+                if (hasUnsavedVolChanges()) {
+                    alert('你的「銷售額佣金」有修改尚未儲存！\n請先按下「儲存全部佣金等級」，或者將數值改回原狀才可離開。');
+                    return; // 阻止切換頁面
+                }
+            }
+
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             document.getElementById(`view-${viewName}`).classList.remove('hidden');
             
@@ -322,6 +408,8 @@
                 document.getElementById('setup-month-display').innerText = `正在設定: ${activeYear}年 ${activeMonth + 1}月`;
                 updateRemarkUI(); 
                 renderSetupList();
+                renderSetupVolList();
+                setSetupTab(setupTabMode); 
             } else if (viewName === 'summary') {
                 document.getElementById('header-summary').classList.remove('hidden');
                 renderSummary();
@@ -351,7 +439,40 @@
             if(document.getElementById('edit-record-btn')) document.getElementById('edit-record-btn').innerText = '編輯';
         }
 
+        // --- 設定頁面 Tab 切換 ---
+        function setSetupTab(mode) {
+            // 防呆：攔截由「銷售額佣金」切換去「當月Incentive」
+            if (setupTabMode === 'vol' && mode !== 'vol') {
+                if (hasUnsavedVolChanges()) {
+                    alert('你的「銷售額佣金」有修改尚未儲存！\n請先按下「儲存全部佣金等級」，或者將數值改回原狀才可切換。');
+                    return; // 阻止切換 Tab
+                }
+            }
+
+            setupTabMode = mode;
+            document.getElementById('tab-btn-inc').className = mode === 'inc' ? "flex-1 py-2.5 rounded-lg text-sm font-bold bg-white shadow text-blue-600 transition-all" : "flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-500 transition-all";
+            document.getElementById('tab-btn-vol').className = mode === 'vol' ? "flex-1 py-2.5 rounded-lg text-sm font-bold bg-white shadow text-blue-600 transition-all" : "flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-500 transition-all";
+            
+            document.querySelectorAll('.setup-tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`setup-content-${mode}`).classList.remove('hidden');
+
+            const remarkBtn = document.getElementById('btn-setup-remark');
+            if (mode === 'inc') {
+                remarkBtn.classList.remove('hidden');
+            } else {
+                remarkBtn.classList.add('hidden');
+            }
+        }
+
         function resetToTodayAndAdd() {
+            // 防呆攔截
+            if (!document.getElementById('view-setup-incentive').classList.contains('hidden') && setupTabMode === 'vol') {
+                if (hasUnsavedVolChanges()) {
+                    alert('你的「銷售額佣金」有修改尚未儲存！\n請先按下「儲存全部佣金等級」，或者將數值改回原狀。');
+                    return;
+                }
+            }
+
             const today = new Date();
             activeYear = today.getFullYear();
             activeMonth = today.getMonth();
@@ -372,10 +493,13 @@
             activeMonth += step;
             if (activeMonth > 11) { activeMonth = 0; activeYear++; }
             if (activeMonth < 0) { activeMonth = 11; activeYear--; }
-            renderCalendar();
-            if (!document.getElementById('view-summary').classList.contains('hidden')) {
-                renderSummary();
-            }
+            
+            const monthText = `${activeYear}年 ${activeMonth + 1}月`;
+            document.getElementById('display-month-year').innerText = monthText;
+            document.getElementById('display-summary-month').innerText = `${activeMonth + 1}月`;
+
+            if (!document.getElementById('view-calendar').classList.contains('hidden')) renderCalendar();
+            if (!document.getElementById('view-summary').classList.contains('hidden')) renderSummary();
         }
 
         function renderCalendar() {
@@ -392,15 +516,6 @@
             const records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
             const recordDates = new Set(records.map(r => r.date));
 
-            const setups = JSON.parse(localStorage.getItem('incentive_setups') || '{}');
-            const monthSetups = setups[getMonthKey()] || [];
-            const setupBtn = document.getElementById('btn-setup-incentive');
-            if(monthSetups.length > 0) {
-                setupBtn.className = "text-xs font-medium text-white px-3 py-2 rounded-lg transition-colors bg-green-500 active:bg-green-600 shadow-sm";
-            } else {
-                setupBtn.className = "text-xs font-medium text-white px-3 py-2 rounded-lg transition-colors bg-red-500 active:bg-red-600 shadow-sm";
-            }
-
             for (let i = 0; i < firstDay; i++) { daysContainer.innerHTML += `<div></div>`; }
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateStr = new Date(activeYear, activeMonth, d).toLocaleDateString('en-CA');
@@ -415,9 +530,163 @@
             }
             
             updateTotal();
+            updateTopButtonsUI();
             updateRemarkUI(); 
         }
 
+        function updateTopButtonsUI() {
+            const setups = JSON.parse(localStorage.getItem('incentive_setups') || '{}');
+            const volumes = JSON.parse(localStorage.getItem('business_volumes') || '{}');
+            const monthKey = getMonthKey();
+            
+            const setupBtn = document.getElementById('btn-setup-incentive');
+            if(setups[monthKey] && setups[monthKey].length > 0) {
+                setupBtn.classList.remove('bg-gray-400');
+                setupBtn.classList.add('bg-green-500');
+            } else {
+                setupBtn.classList.remove('bg-green-500');
+                setupBtn.classList.add('bg-gray-400');
+            }
+
+            const volBtn = document.getElementById('btn-input-volume');
+            if(volumes[monthKey] !== undefined) {
+                volBtn.classList.remove('bg-gray-400');
+                volBtn.classList.add('bg-green-500');
+            } else {
+                volBtn.classList.remove('bg-green-500');
+                volBtn.classList.add('bg-gray-400');
+            }
+        }
+
+        function updateRemarkUI() {
+            const remarks = JSON.parse(localStorage.getItem('incentive_remarks') || '{}');
+            const currentRemark = remarks[getMonthKey()] || '';
+            const btnRemark = document.getElementById('btn-setup-remark');
+            
+            if(btnRemark) {
+                if(currentRemark) {
+                    btnRemark.classList.remove('bg-gray-400');
+                    btnRemark.classList.add('bg-green-500');
+                } else {
+                    btnRemark.classList.remove('bg-green-500');
+                    btnRemark.classList.add('bg-gray-400');
+                }
+            }
+            
+            const calRemarkDisplay = document.getElementById('calendar-month-remark');
+            if(calRemarkDisplay) {
+                calRemarkDisplay.innerText = currentRemark;
+                if(currentRemark) calRemarkDisplay.classList.remove('hidden');
+                else calRemarkDisplay.classList.add('hidden'); 
+            }
+        }
+
+        // --- 銷售額佣金核心邏輯 ---
+        function getEffectiveTiers(monthKey) {
+            const history = JSON.parse(localStorage.getItem('commission_tiers_history') || '{}');
+            const keys = Object.keys(history).sort();
+            let effectiveKey = null;
+            for (let key of keys) {
+                if (key <= monthKey) effectiveKey = key;
+            }
+            if (effectiveKey) return history[effectiveKey];
+            return Array.from({length: 10}, () => ({ target: '', percent: '' }));
+        }
+
+        function renderSetupVolList() {
+            const tiers = getEffectiveTiers(getMonthKey());
+            const container = document.getElementById('setup-vol-list');
+            container.innerHTML = tiers.map((t, i) => `
+                <div class="flex items-center space-x-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <div class="w-8 text-xs font-bold text-gray-400 text-center">Lv.${i+1}</div>
+                    <div class="flex-1">
+                        <label class="text-[10px] text-gray-400 font-medium">目標生意額 ($)</label>
+                        <input type="number" id="tier-target-${i}" value="${t.target}" class="w-full bg-white p-2 rounded-lg border border-gray-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm">
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[10px] text-gray-400 font-medium">佣金 (%)</label>
+                        <input type="number" id="tier-percent-${i}" value="${t.percent}" class="w-full bg-white p-2 rounded-lg border border-gray-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm">
+                    </div>
+                </div>
+            `).join('');
+
+            // 初始化防呆基準值
+            initialVolState = getVolInputsState();
+        }
+
+        function saveVolumeTiers() {
+            let tiers = [];
+            let hasData = false;
+            for (let i = 0; i < 10; i++) {
+                const target = document.getElementById(`tier-target-${i}`).value;
+                const percent = document.getElementById(`tier-percent-${i}`).value;
+                tiers.push({ target, percent });
+                if(target !== '' && percent !== '') hasData = true;
+            }
+
+            const monthKey = getMonthKey();
+            let history = JSON.parse(localStorage.getItem('commission_tiers_history') || '{}');
+            
+            if (hasData) {
+                history[monthKey] = tiers;
+            } else {
+                delete history[monthKey]; 
+            }
+
+            localStorage.setItem('commission_tiers_history', JSON.stringify(history));
+            
+            // 更新防呆基準值，解除鎖定
+            initialVolState = getVolInputsState();
+            
+            alert("✅ 佣金等級已儲存成功！將應用於本月及往後月份。");
+            updateTotal();
+        }
+
+        function calculateVolComm(monthKey, volume) {
+            if (!volume || volume <= 0) return 0;
+            const tiers = getEffectiveTiers(monthKey);
+            
+            let validTiers = tiers
+                .filter(t => t.target !== '' && t.percent !== '')
+                .map(t => ({ target: parseFloat(t.target), percent: parseFloat(t.percent) }))
+                .filter(t => !isNaN(t.target) && !isNaN(t.percent))
+                .sort((a, b) => b.target - a.target);
+
+            for (let tier of validTiers) {
+                if (volume >= tier.target) {
+                    return volume * (tier.percent / 100);
+                }
+            }
+            return 0;
+        }
+
+        // --- 總計更新 ---
+        function updateTotal() {
+            const monthKey = getMonthKey();
+            const records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
+            const monthRecords = records.filter(r => r.date.startsWith(monthKey));
+            
+            const totalInc = monthRecords.reduce((sum, r) => sum + r.amount, 0);
+            const totalIncSales = monthRecords.reduce((sum, r) => sum + (r.sales || 0), 0);
+            
+            const volumes = JSON.parse(localStorage.getItem('business_volumes') || '{}');
+            const totalVolume = volumes[monthKey] || 0;
+            const volComm = calculateVolComm(monthKey, totalVolume);
+
+            const grandTotal = totalInc + volComm;
+            
+            document.getElementById('grandTotal').innerText = grandTotal.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 1});
+            document.getElementById('totalInc').innerText = totalInc.toLocaleString();
+            document.getElementById('totalVolComm').innerText = volComm.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 1});
+            document.getElementById('totalIncSales').innerText = totalIncSales.toLocaleString();
+            
+            document.getElementById('summaryGrandTotal').innerText = grandTotal.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 1});
+            document.getElementById('summaryTotalInc').innerText = totalInc.toLocaleString();
+            document.getElementById('summaryTotalVolComm').innerText = volComm.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 1});
+            document.getElementById('summaryTotalIncSales').innerText = totalIncSales.toLocaleString();
+        }
+
+        // --- 其他原有功能 ---
         function setSummaryMode(mode) {
             summaryMode = mode;
             document.getElementById('btn-daily-sum').className = mode === 'daily' 
@@ -436,7 +705,7 @@
             const container = document.getElementById('summary-content');
 
             if (monthRecords.length === 0) {
-                container.innerHTML = '<p class="text-center text-gray-400 py-10">此月份暫無數據</p>';
+                container.innerHTML = '<p class="text-center text-gray-400 py-10">此月份暫無型號銷售數據</p>';
                 return;
             }
 
@@ -448,35 +717,31 @@
                     grouped[r.date].totalInc += r.amount;
                     grouped[r.date].totalSales += r.sales;
                 });
-
                 const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-
                 container.innerHTML = sortedDates.map(date => {
                     const group = grouped[date];
                     const itemsHtml = group.items.map(item => `
                         <div class="py-2 border-b border-gray-50 last:border-0">
                             <div class="font-bold text-gray-700 text-sm mb-0.5">${item.category}</div>
                             <div class="flex items-center gap-3">
-                                <span class="text-gray-400 font-medium text-[11px]">Incentive:$${item.amount}</span>
-                                <span class="text-gray-400 font-medium text-[11px]">銷售金額:$${item.sales}</span>
+                                <span class="text-gray-400 font-medium text-[11px]">Inc:$${item.amount}</span>
+                                <span class="text-gray-400 font-medium text-[11px]">Inc銷售金額:$${item.sales}</span>
                             </div>
                         </div>
                     `).join('');
-
                     return `
                         <div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
                             <div class="flex justify-between items-center border-b pb-3 mb-2">
                                 <h3 class="font-black text-gray-800">${date}</h3>
                                 <div class="text-right">
-                                    <p class="text-blue-600 font-bold text-sm">Incentive:$${group.totalInc}</p>
-                                    <p class="text-gray-500 text-xs mt-0.5">銷售金額:$${group.totalSales}</p>
+                                    <p class="text-blue-600 font-bold text-sm">Inc:$${group.totalInc}</p>
+                                    <p class="text-gray-500 text-xs mt-0.5">Inc銷售金額:$${group.totalSales}</p>
                                 </div>
                             </div>
                             <div class="space-y-1">${itemsHtml}</div>
                         </div>
                     `;
                 }).join('');
-
             } else {
                 const grouped = {};
                 monthRecords.forEach(r => {
@@ -485,9 +750,7 @@
                     grouped[r.category].totalInc += r.amount;
                     grouped[r.category].totalSales += r.sales;
                 });
-
                 const sortedCategories = Object.keys(grouped).sort((a, b) => grouped[b].totalInc - grouped[a].totalInc);
-
                 container.innerHTML = sortedCategories.map(cat => {
                     const group = grouped[cat];
                     return `
@@ -497,8 +760,8 @@
                                 <p class="text-xs text-gray-400 mt-1">數量: ${group.count}</p>
                             </div>
                             <div class="text-right w-2/3">
-                                <p class="text-blue-500 font-bold text-lg">Incentive:$${group.totalInc}</p>
-                                <p class="text-gray-500 font-medium text-sm mt-0.5">銷售金額:$${group.totalSales}</p>
+                                <p class="text-blue-500 font-bold text-lg">Inc:$${group.totalInc}</p>
+                                <p class="text-gray-500 font-medium text-sm mt-0.5">Inc銷售金額:$${group.totalSales}</p>
                             </div>
                         </div>
                     `;
@@ -522,6 +785,7 @@
             document.getElementById('setup-bonus').value = '';
             document.getElementById('setup-model').focus();
             renderSetupList();
+            updateTopButtonsUI();
         }
 
         function renderSetupList() {
@@ -562,6 +826,7 @@
             renderSetupList();
             renderCalendar();
             updateTotal();
+            updateTopButtonsUI();
         }
 
         function populateModelDropdown() {
@@ -586,7 +851,7 @@
             const sales = document.getElementById('input-sales').value;
             const date = document.getElementById('selected-date').value;
 
-            if(!category || !amount || !sales) return alert('請選擇型號並輸入銷售金額');
+            if(!category || !amount || !sales) return alert('請選擇型號並輸入Inc銷售金額');
 
             const newRecord = { id: Date.now(), date, category, amount: parseFloat(amount), sales: parseFloat(sales) };
             let records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
@@ -611,8 +876,8 @@
                     <div class="flex-1">
                         <div class="font-bold text-gray-800 text-sm mb-1">${r.category}</div>
                         <div class="flex items-center gap-2">
-                            <span class="text-blue-500 font-bold text-base">Incentive:$${r.amount}</span>
-                            <span class="text-gray-400 font-medium text-xs">銷售金額:$${r.sales}</span>
+                            <span class="text-blue-500 font-bold text-base">Inc:$${r.amount}</span>
+                            <span class="text-gray-400 font-medium text-xs">Inc銷售金額:$${r.sales}</span>
                         </div>
                     </div>
                     <button onclick="deleteRecord(${r.id}, '${dateStr}')" class="delete-btn bg-red-500 text-white h-full px-4 items-center justify-center absolute right-0 top-0 active:bg-red-600">
@@ -638,21 +903,6 @@
             const btn = document.getElementById(btnId);
             list.classList.toggle('editing');
             btn.innerText = list.classList.contains('editing') ? '完成' : '編輯';
-        }
-
-        function updateTotal() {
-            const records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
-            const monthPrefix = getMonthKey();
-            const monthRecords = records.filter(r => r.date.startsWith(monthPrefix));
-            
-            const totalAmount = monthRecords.reduce((sum, r) => sum + r.amount, 0);
-            const totalSales = monthRecords.reduce((sum, r) => sum + (r.sales || 0), 0);
-            
-            document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
-            document.getElementById('totalSales').innerText = totalSales.toLocaleString();
-            
-            document.getElementById('summaryTotalAmount').innerText = totalAmount.toLocaleString();
-            document.getElementById('summaryTotalSales').innerText = totalSales.toLocaleString();
         }
 
         // 首次啟動渲染
