@@ -187,7 +187,7 @@
                     <label class="block text-sm font-medium text-gray-700">型號</label>
                     <select id="input-category" onchange="autoFillAmount()" class="mt-1 block w-full rounded-xl border-gray-200 bg-gray-50 p-3 outline-none text-lg"></select>
                 </div>
-                <!-- 新增：銷售數量控制器 -->
+                <!-- 銷售數量控制器 -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700">銷售數量</label>
                     <div class="flex items-center mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 overflow-hidden shadow-sm">
@@ -267,7 +267,7 @@
         </div>
     </div>
 
-    <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 text-[10px] text-gray-300 font-mono italic z-0 pointer-events-none">Ver 6.3</div>
+    <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 text-[10px] text-gray-300 font-mono italic z-0 pointer-events-none">Ver 6.4</div>
 
     <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white border-t z-50 safe-bottom-nav">
         <div class="px-6 pt-3 flex justify-between items-center relative">
@@ -490,14 +490,13 @@
             }
         }
 
-        // --- 新增：變更數量的邏輯 ---
         function changeQuantity(delta) {
             const qtyDiv = document.getElementById('input-quantity');
             let qty = parseInt(qtyDiv.innerText) || 1;
             qty += delta;
-            if (qty < 1) qty = 1; // 確保數量不能少於 1
+            if (qty < 1) qty = 1; 
             qtyDiv.innerText = qty;
-            autoFillAmount(); // 觸發重新計算 Incentive
+            autoFillAmount(); 
         }
 
         function changeMonth(step) {
@@ -508,6 +507,9 @@
             const monthText = `${activeYear}年 ${activeMonth + 1}月`;
             document.getElementById('display-month-year').innerText = monthText;
             document.getElementById('display-summary-month').innerText = `${activeMonth + 1}月`;
+
+            // 修復：確保每次切換月份時，都強制更新 Header 上的總結數字
+            updateTotal();
 
             if (!document.getElementById('view-calendar').classList.contains('hidden')) renderCalendar();
             if (!document.getElementById('view-summary').classList.contains('hidden')) renderSummary();
@@ -710,6 +712,9 @@
             const monthRecords = records.filter(r => r.date.startsWith(monthPrefix));
             const container = document.getElementById('summary-content');
 
+            // 確保每次渲染總結視圖時，都更新右上角數字 (避免漏抓)
+            updateTotal();
+
             if (monthRecords.length === 0) {
                 container.innerHTML = '<p class="text-center text-gray-400 py-10">此月份暫無型號銷售數據</p>';
                 return;
@@ -726,7 +731,6 @@
                 const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
                 container.innerHTML = sortedDates.map(date => {
                     const group = grouped[date];
-                    // 更新日結：顯示銷售數量
                     const itemsHtml = group.items.map(item => `
                         <div class="py-2 border-b border-gray-50 last:border-0">
                             <div class="font-bold text-gray-700 text-sm mb-0.5">${item.category} <span class="text-xs text-gray-400 font-normal ml-1">x${item.quantity || 1}</span></div>
@@ -753,7 +757,6 @@
                 const grouped = {};
                 monthRecords.forEach(r => {
                     if (!grouped[r.category]) grouped[r.category] = { count: 0, totalInc: 0, totalSales: 0 };
-                    // 更新月結：數量疊加 (若沒有 quantity 則為 1)
                     grouped[r.category].count += (r.quantity || 1);
                     grouped[r.category].totalInc += r.amount;
                     grouped[r.category].totalSales += r.sales;
@@ -845,10 +848,9 @@
                 monthSetups.map(item => `<option value="${item.model}" data-bonus="${item.bonus}">${item.model}</option>`).join('');
             document.getElementById('input-amount').value = '';
             document.getElementById('input-sales').value = '';
-            document.getElementById('input-quantity').innerText = '1'; // 重置數量為 1
+            document.getElementById('input-quantity').innerText = '1'; 
         }
 
-        // --- 更新：配合數量乘法 ---
         function autoFillAmount() {
             const select = document.getElementById('input-category');
             const selectedOption = select.options[select.selectedIndex];
@@ -867,11 +869,10 @@
             const amount = document.getElementById('input-amount').value;
             const sales = document.getElementById('input-sales').value;
             const date = document.getElementById('selected-date').value;
-            const qty = parseInt(document.getElementById('input-quantity').innerText) || 1; // 獲取數量
+            const qty = parseInt(document.getElementById('input-quantity').innerText) || 1; 
 
             if(!category || !amount || !sales) return alert('請選擇型號並輸入Inc銷售金額');
 
-            // 儲存時加入 quantity 屬性，舊資料無此屬性不影響系統
             const newRecord = { id: Date.now(), date, category, amount: parseFloat(amount), sales: parseFloat(sales), quantity: qty };
             let records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
             records.unshift(newRecord);
@@ -880,7 +881,7 @@
             document.getElementById('input-category').value = '';
             document.getElementById('input-amount').value = '';
             document.getElementById('input-sales').value = '';
-            document.getElementById('input-quantity').innerText = '1'; // 儲存後重置數量為 1
+            document.getElementById('input-quantity').innerText = '1'; 
             
             renderRecordList(date);
             renderCalendar();
