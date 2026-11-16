@@ -181,7 +181,8 @@
         </section>
 
         <section id="view-add" class="view hidden mt-2">
-            <h2 class="text-lg font-semibold mb-4 text-blue-600" id="add-view-date-title">新增記錄</h2>
+            <!-- 當日日期固定於頂部 Header 下方，上下捲動時保持可見 -->
+            <h2 class="sticky top-[calc(73px+env(safe-area-inset-top))] z-20 bg-gray-50/95 backdrop-blur-sm py-2.5 -mx-6 px-6 text-lg font-semibold mb-3 text-blue-600 border-b border-gray-200/60" id="add-view-date-title">新增記錄</h2>
             <div class="bg-white p-6 rounded-2xl shadow-sm space-y-4 mb-8">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">型號</label>
@@ -267,18 +268,13 @@
         </div>
     </div>
 
-    <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 text-[10px] text-gray-300 font-mono italic z-0 pointer-events-none">Ver 6.4</div>
+    <div class="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 text-[10px] text-gray-300 font-mono italic z-0 pointer-events-none">Ver 6.6</div>
 
     <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 w-full bg-white border-t z-50 safe-bottom-nav">
         <div class="px-6 pt-3 flex justify-between items-center relative">
             <button onclick="showView('calendar')" class="nav-btn flex flex-col items-center p-2 active-tab" id="btn-calendar">
                 <i data-lucide="calendar" class="w-6 h-6"></i><span class="text-[10px] mt-1">月曆</span>
             </button>
-            <div class="absolute left-1/2 -translate-x-1/2 -top-8">
-                <button onclick="resetToTodayAndAdd()" class="flex flex-col items-center justify-center bg-blue-600 text-white w-16 h-16 rounded-full shadow-lg active:scale-95 transition-transform" id="btn-add">
-                    <i data-lucide="plus" class="w-8 h-8"></i>
-                </button>
-            </div>
             <button onclick="showView('summary')" class="nav-btn flex flex-col items-center p-2 text-gray-400" id="btn-summary">
                 <i data-lucide="pie-chart" class="w-6 h-6"></i><span class="text-[10px] mt-1">Inc總結</span>
             </button>
@@ -466,21 +462,6 @@
             }
         }
 
-        function resetToTodayAndAdd() {
-            if (!document.getElementById('view-setup-incentive').classList.contains('hidden') && setupTabMode === 'vol') {
-                if (hasUnsavedVolChanges()) {
-                    alert('你的「銷售額佣金」有修改尚未儲存！\n請先按下「儲存全部佣金等級」，或者將數值改回原狀。');
-                    return;
-                }
-            }
-
-            const today = new Date();
-            activeYear = today.getFullYear();
-            activeMonth = today.getMonth();
-            renderCalendar();
-            showView('add', today.toLocaleDateString('en-CA'));
-        }
-
         function pressKey(val) {
             const salesInput = document.getElementById('input-sales');
             if (val === 'DEL') {
@@ -508,7 +489,6 @@
             document.getElementById('display-month-year').innerText = monthText;
             document.getElementById('display-summary-month').innerText = `${activeMonth + 1}月`;
 
-            // 修復：確保每次切換月份時，都強制更新 Header 上的總結數字
             updateTotal();
 
             if (!document.getElementById('view-calendar').classList.contains('hidden')) renderCalendar();
@@ -667,6 +647,15 @@
                     return volume * (tier.percent / 100);
                 }
             }
+
+            // Lv.1 邏輯：若總生意額少於目標生意額，亦照計 Lv.1 所設定之佣金計算 %
+            if (tiers[0] && tiers[0].percent !== '') {
+                const lv1Percent = parseFloat(tiers[0].percent);
+                if (!isNaN(lv1Percent)) {
+                    return volume * (lv1Percent / 100);
+                }
+            }
+
             return 0;
         }
 
@@ -712,7 +701,6 @@
             const monthRecords = records.filter(r => r.date.startsWith(monthPrefix));
             const container = document.getElementById('summary-content');
 
-            // 確保每次渲染總結視圖時，都更新右上角數字 (避免漏抓)
             updateTotal();
 
             if (monthRecords.length === 0) {
@@ -875,7 +863,7 @@
 
             const newRecord = { id: Date.now(), date, category, amount: parseFloat(amount), sales: parseFloat(sales), quantity: qty };
             let records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
-            records.unshift(newRecord);
+            records.push(newRecord); // 後輸入排下方
             localStorage.setItem('incentive_records', JSON.stringify(records));
 
             document.getElementById('input-category').value = '';
@@ -890,7 +878,8 @@
 
         function renderRecordList(dateStr) {
             const records = JSON.parse(localStorage.getItem('incentive_records') || '[]');
-            const dayRecords = records.filter(r => r.date === dateStr);
+            // 按 id (輸入時間) 由舊至新排序：先輸入排頂方，後輸入排下方
+            const dayRecords = records.filter(r => r.date === dateStr).sort((a, b) => a.id - b.id);
             
             document.getElementById('record-list').innerHTML = dayRecords.map(r => `
                 <div class="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm relative overflow-hidden">
